@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Physio | Smart Rehabilitation</title>
+<meta name="description" content="AI-powered physiotherapy with real-time pose detection and feedback.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg: #080c14;
+    --surface: rgba(255,255,255,0.03);
+    --surface-variant: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.08);
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --accent: #38bdf8;
+    --accent2: #34d399;
+    --accent3: #a78bfa;
+    --danger: #f87171;
+    --glow-blue: 0 0 20px rgba(56,189,248,0.15);
+    --glow-green: 0 0 20px rgba(52,211,153,0.15);
+    --glow-red: 0 0 20px rgba(248,113,113,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Glass card */
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    backdrop-filter: blur(12px);
+  }
+
+  /* NAVBAR */
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0;
+    background: rgba(8,12,20,0.9);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  .logo { font-weight: 800; font-size: 1.15rem; }
+  .nav-badge {
+    font-size: 0.55rem; font-weight: 700; letter-spacing: 0.12em;
+    padding: 3px 8px; border-radius: 6px;
+    background: rgba(56,189,248,0.15); color: var(--accent);
+    border: 1px solid rgba(56,189,248,0.3);
+  }
+  .nav-links { margin-left: auto; display: flex; gap: 8px; }
+  .nav-link {
+    font-size: 0.78rem; font-weight: 600; color: var(--muted);
+    text-decoration: none; padding: 6px 14px; border-radius: 8px;
+    transition: all 0.2s;
+  }
+  .nav-link.active, .nav-link:hover { color: var(--text); background: var(--surface-variant); }
+
+  /* MAIN LAYOUT: 3-col */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr 300px;
+    gap: 16px;
+    padding: 16px 20px;
+    height: calc(100vh - 56px);
+    overflow: hidden;
+  }
+
+  /* LEFT PANEL */
+  .left-panel {
+    display: flex; flex-direction: column; gap: 12px;
+    overflow-y: auto;
+  }
+
+  /* CATEGORY TABS */
+  .cat-tabs {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;
+  }
+  .cat-tab {
+    padding: 6px 12px; border-radius: 8px; font-size: 0.68rem; font-weight: 700;
+    background: var(--surface-variant); border: 1px solid var(--border);
+    color: var(--muted); cursor: pointer; transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+  .cat-tab:hover { color: var(--text); border-color: rgba(56,189,248,0.3); }
+  .cat-tab.active {
+    background: rgba(56,189,248,0.15); color: var(--accent);
+    border-color: rgba(56,189,248,0.4);
+  }
+
+  /* EXERCISE CARDS */
+  .exercise-list { display: flex; flex-direction: column; gap: 6px; }
+  .exercise-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    cursor: pointer; transition: all 0.2s;
+    text-align: left; width: 100%;
+    font-family: 'Syne', sans-serif;
+    color: var(--text);
+  }
+  .exercise-btn:hover {
+    background: rgba(56,189,248,0.05);
+    border-color: rgba(56,189,248,0.25);
+    transform: translateX(2px);
+  }
+  .exercise-btn.selected {
+    background: rgba(56,189,248,0.1);
+    border-color: var(--accent);
+    box-shadow: var(--glow-blue);
+  }
+  .exercise-btn .icon { font-size: 1.4rem; width: 32px; text-align: center; }
+  .exercise-btn .info { flex: 1; min-width: 0; }
+  .exercise-btn .name { font-size: 0.78rem; font-weight: 700; }
+  .exercise-btn .desc { font-size: 0.62rem; color: var(--muted); margin-top: 1px; }
+  .exercise-btn .type-badge {
+    font-size: 0.5rem; font-weight: 700; letter-spacing: 0.06em;
+    padding: 2px 6px; border-radius: 4px;
+    background: rgba(167,139,250,0.15); color: var(--accent3);
+    border: 1px solid rgba(167,139,250,0.3);
+  }
+
+  /* SESSION CONTROLS */
+  .btn-action {
+    width: 100%; padding: 12px; border-radius: 12px; border: none;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem;
+    cursor: pointer; transition: all 0.25s; letter-spacing: 0.04em;
+  }
+  .btn-action.start {
+    background: linear-gradient(135deg, #0ea5e9, #34d399); color: #000;
+    box-shadow: 0 4px 20px rgba(14,165,233,0.3);
+  }
+  .btn-action.start:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(14,165,233,0.5); }
+  .btn-action.stop {
+    background: linear-gradient(135deg, #ef4444, #f97316); color: #fff;
+    box-shadow: 0 4px 20px rgba(239,68,68,0.3);
+  }
+  .btn-action.stop:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(239,68,68,0.5); }
+  .btn-action:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+  .btn-sm {
+    flex: 1; padding: 10px; border-radius: 10px; border: none;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.78rem;
+    cursor: pointer; transition: all 0.2s;
+    background: var(--surface-variant); color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-sm:hover { border-color: rgba(56,189,248,0.3); }
+  .btn-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* STATS MINI */
+  .stat-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; border-radius: 8px;
+    background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+  }
+  .stat-label { font-size: 0.68rem; color: var(--muted); font-weight: 600; }
+  .stat-val { font-family: 'DM Mono', monospace; font-size: 0.85rem; color: var(--accent); }
+
+  /* CENTER - CAMERA */
+  .camera-container { display: flex; flex-direction: column; gap: 12px; }
+  .camera-wrapper {
+    position: relative; flex: 1; border-radius: 16px; overflow: hidden;
+    background: #000; border: 2px solid var(--border);
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .camera-wrapper.ok { border-color: var(--accent2); box-shadow: var(--glow-green); }
+  .camera-wrapper.bad { border-color: var(--danger); box-shadow: var(--glow-red); }
+  #camera-feed { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .camera-overlay-top {
+    position: absolute; top: 12px; left: 12px; right: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
+  }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+    backdrop-filter: blur(8px);
+  }
+  .status-pill.ok { background: rgba(52,211,153,0.2); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+  .status-pill.bad { background: rgba(248,113,113,0.2); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+  .status-pill.idle { background: rgba(100,116,139,0.2); color: #94a3b8; border: 1px solid rgba(100,116,139,0.3); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; animation: pulse 1.5s infinite; }
+  .status-pill.ok .status-dot { background: #34d399; }
+  .status-pill.bad .status-dot { background: #f87171; }
+  .status-pill.idle .status-dot { background: #64748b; animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.5;transform:scale(1.4);} }
+  .fps-badge {
+    font-family: 'DM Mono', monospace; font-size: 0.65rem;
+    padding: 3px 8px; border-radius: 6px;
+    background: rgba(0,0,0,0.5); color: var(--muted);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .no-feed-msg {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+    color: var(--muted); font-size: 0.9rem; font-weight: 600;
+  }
+  .no-feed-msg .icon-big { font-size: 3rem; opacity: 0.3; }
+
+  /* RIGHT PANEL */
+  .right-panel { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+
+  /* REP COUNTER */
+  .rep-counter { display: flex; flex-direction: column; align-items: center; padding: 20px 16px; gap: 8px; }
+  .rep-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; color: var(--muted); }
+  .rep-number {
+    font-size: 4.5rem; font-weight: 800; font-variant-numeric: tabular-nums;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; line-height: 1; transition: transform 0.15s;
+  }
+  .rep-number.bump { animation: repBump 0.25s ease; }
+  @keyframes repBump { 0%{transform:scale(1);} 50%{transform:scale(1.25);} 100%{transform:scale(1);} }
+
+  /* Circular progress */
+  .circle-progress { position: relative; width: 80px; height: 80px; }
+  .circle-progress svg { transform: rotate(-90deg); }
+  .circle-bg { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 6; }
+  .circle-fill {
+    fill: none; stroke: url(#grad); stroke-width: 6; stroke-linecap: round;
+    stroke-dasharray: 220; stroke-dashoffset: 220; transition: stroke-dashoffset 0.5s ease;
+  }
+  .circle-text {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--accent2);
+  }
+
+  /* FEEDBACK PANEL */
+  .feedback-panel { padding: 16px; min-height: 80px; }
+  .feedback-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; color: var(--muted);
+  }
+  .feedback-msg { font-size: 0.95rem; font-weight: 700; color: var(--text); min-height: 1.5em; transition: all 0.3s; }
+  .feedback-msg.positive { color: var(--accent2); }
+  .feedback-msg.warning { color: #fbbf24; }
+
+  /* ANGLE DISPLAY */
+  .angle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .angle-item { padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); }
+  .angle-item .joint { font-size: 0.58rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .angle-item .deg { font-family: 'DM Mono', monospace; font-size: 0.9rem; font-weight: 500; color: var(--accent3); margin-top: 2px; }
+
+  /* ACCURACY BAR */
+  .accuracy-bar-wrap { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.05); overflow: hidden; margin-top: 4px; }
+  .accuracy-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.5s ease; }
+
+  /* TIMER */
+  .timer { font-family: 'DM Mono', monospace; font-size: 1.3rem; font-weight: 500; color: var(--accent); letter-spacing: 0.04em; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: rgba(13,20,33,0.95); border: 1px solid var(--accent2); color: var(--accent2);
+    padding: 10px 20px; border-radius: 30px; font-size: 0.85rem; font-weight: 700;
+    z-index: 999; transition: transform 0.3s ease; box-shadow: var(--glow-green); pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Section title */
+  .section-title {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted); padding: 0 2px; margin-bottom: 6px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(99,179,237,0.2); border-radius: 2px; }
+
+  /* Instructions area */
+  .inst-panel { padding: 14px; }
+  .inst-text { font-size: 0.72rem; color: var(--text); line-height: 1.5; }
+  .inst-tip { font-size: 0.68rem; color: var(--accent2); font-style: italic; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <span class="logo">⚡ AI-Physio</span>
+  <span class="nav-badge">EDGE AI</span>
+  <div class="nav-links">
+    <a href="/" class="nav-link active">Live Session</a>
+    <a href="/dashboard" class="nav-link">Dashboard</a>
+  </div>
+</nav>
+
+<!-- MAIN LAYOUT -->
+<div class="main-layout">
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+
+    <!-- Category tabs + exercise list -->
+    <div class="glass" style="padding:14px; overflow-y:auto; max-height:50vh;">
+      <div class="section-title">Select Exercise</div>
+      <div class="cat-tabs" id="cat-tabs"></div>
+      <div class="exercise-list" id="exercise-list">
+        <div style="font-size:0.78rem; color:var(--muted); text-align:center; padding:16px;">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="glass inst-panel">
+      <div class="section-title">Instructions</div>
+      <div class="inst-text" id="inst-steps">Select an exercise to see steps.</div>
+      <div class="section-title" style="margin-top:10px;">Tips</div>
+      <div class="inst-tip" id="inst-tips">Watch your form!</div>
+    </div>
+
+    <!-- Session controls -->
+    <div class="glass" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+      <div class="section-title">Session Control</div>
+      <button id="toggle-btn" class="btn-action start" onclick="toggleSession()">▶ Start Session</button>
+      <div style="display:flex; gap:8px;">
+        <button id="pause-btn" class="btn-sm" onclick="pauseSession()" disabled>⏸ Pause</button>
+        <button id="reset-btn" class="btn-sm" onclick="resetSession()" disabled>🔄 Reset</button>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">⏱ Duration</span>
+        <span class="stat-val timer" id="session-timer">00:00</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">📡 Status</span>
+        <span class="stat-val" id="conn-status" style="color:var(--muted)">Idle</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">🎯 Exercise</span>
+        <span class="stat-val" id="current-exercise-name">—</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CENTER — CAMERA -->
+  <div class="camera-container">
+    <div class="camera-wrapper" id="camera-wrapper">
+      <img id="camera-feed" alt="Camera feed" style="display:none;">
+      <div class="no-feed-msg" id="no-feed-msg">
+        <div class="icon-big">📷</div>
+        <div>Select an exercise and start session</div>
+        <div style="font-size:0.75rem; color:var(--muted); font-weight:400;">Camera will appear here</div>
+      </div>
+      <div class="camera-overlay-top">
+        <div class="status-pill idle" id="pose-status">
+          <div class="status-dot"></div>
+          <span id="pose-status-text">READY</span>
+        </div>
+        <div class="fps-badge" id="fps-display">— FPS</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+
+    <!-- Rep counter -->
+    <div class="glass rep-counter">
+      <div class="section-title">Repetitions</div>
+      <div class="rep-number" id="rep-counter">0</div>
+      <div style="display:flex; align-items:center; gap:12px; margin-top:6px;">
+        <div class="circle-progress">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <defs>
+              <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#38bdf8"/>
+                <stop offset="100%" style="stop-color:#34d399"/>
+              </linearGradient>
+            </defs>
+            <circle class="circle-bg" cx="40" cy="40" r="34"/>
+            <circle class="circle-fill" id="circle-fill" cx="40" cy="40" r="34"/>
+          </svg>
+          <div class="circle-text" id="circle-pct">0%</div>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:0.7rem; color:var(--muted); font-weight:600;">Form Score</div>
+          <div id="form-score-large" style="font-size:1.5rem; font-weight:800; color:var(--accent2); font-family:'DM Mono',monospace;">0%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback -->
+    <div class="glass feedback-panel">
+      <div class="feedback-header">
+        <span>💬</span>
+        <span>COACH FEEDBACK</span>
+        <span id="speaker-icon" style="display:none; color:var(--accent);">🔊</span>
+      </div>
+      <div class="feedback-msg" id="feedback-msg">Start a session to receive feedback.</div>
+    </div>
+
+    <!-- Phase tracker -->
+    <div class="glass" style="padding:14px;">
+      <div class="section-title">Phase Tracker</div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <div id="phase-up" style="flex:1; padding:8px; border-radius:8px; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.3); text-align:center; font-size:0.75rem; font-weight:700; color:var(--accent); transition:all 0.2s;">↑ UP</div>
+        <div style="font-size:0.7rem; color:var(--muted);">→</div>
+        <div id="phase-down" style="flex:1; padding:8px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid var(--border); text-align:center; font-size:0.75rem; font-weight:700; color:var(--muted); transition:all 0.2s;">↓ DOWN</div>
+      </div>
+    </div>
+
+    <!-- Accuracy -->
+    <div class="glass" style="padding:14px;">
+      <div class="section-title">Form Accuracy</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+        <span style="font-size:0.75rem; color:var(--muted);">Correct / Total</span>
+        <span id="accuracy-pct" style="font-family:'DM Mono',monospace; font-size:0.9rem; color:var(--accent2);">0%</span>
+      </div>
+      <div class="accuracy-bar-wrap">
+        <div class="accuracy-bar-fill" id="accuracy-bar" style="width:0%"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-top:6px;">
+        <span style="font-size:0.68rem; color:var(--muted);">Correct Reps</span>
+        <span id="correct-reps-count" style="font-family:'DM Mono',monospace; font-size:0.8rem; color:var(--accent2);">0</span>
+      </div>
+    </div>
+
+    <!-- Joint angles -->
+    <div class="glass" style="padding:14px;">
+      <div class="section-title">Joint Angles</div>
+      <div class="angle-grid" id="angle-grid">
+        <div class="angle-item"><div class="joint">L.Knee</div><div class="deg" id="ang-left_knee">—</div></div>
+        <div class="angle-item"><div class="joint">R.Knee</div><div class="deg" id="ang-right_knee">—</div></div>
+        <div class="angle-item"><div class="joint">L.Elbow</div><div class="deg" id="ang-left_elbow">—</div></div>
+        <div class="angle-item"><div class="joint">R.Elbow</div><div class="deg" id="ang-right_elbow">—</div></div>
+        <div class="angle-item"><div class="joint">L.Shoulder</div><div class="deg" id="ang-left_shoulder">—</div></div>
+        <div class="angle-item"><div class="joint">R.Shoulder</div><div class="deg" id="ang-right_shoulder">—</div></div>
+      </div>
+    </div>
+
+    <!-- Live stats -->
+    <div class="glass" style="padding:14px; flex:1;">
+      <div class="section-title">Live Stats</div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div class="stat-row">
+          <span class="stat-label">Total Reps</span>
+          <span class="stat-val" id="live-total">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Correct Reps</span>
+          <span class="stat-val" style="color:var(--accent2);" id="live-correct">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Pose Detected</span>
+          <span class="stat-val" id="live-pose">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Camera FPS</span>
+          <span class="stat-val" id="live-fps">—</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- SESSION SUMMARY MODAL -->
+<div id="summary-modal" style="display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); align-items:center; justify-content:center;">
+  <div class="glass" style="padding:32px; max-width:400px; width:90%; text-align:center; position:relative;">
+    <div style="font-size:2.5rem;">🎉</div>
+    <div style="font-size:1.4rem; font-weight:800; margin:12px 0 4px;">Session Complete!</div>
+    <div style="color:var(--muted); font-size:0.85rem; margin-bottom:24px;" id="summary-exercise-name">—</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:24px;">
+      <div style="padding:12px; background:var(--surface-variant); border-radius:10px;">
+        <div style="font-size:0.6rem; color:var(--muted); font-weight:700; text-transform:uppercase;">Total Reps</div>
+        <div id="sum-reps" style="font-size:1.8rem; font-weight:800; font-family:'DM Mono',monospace; color:var(--accent);">0</div>
+      </div>
+      <div style="padding:12px; background:var(--surface-variant); border-radius:10px;">
+        <div style="font-size:0.6rem; color:var(--muted); font-weight:700; text-transform:uppercase;">Accuracy</div>
+        <div id="sum-accuracy" style="font-size:1.8rem; font-weight:800; font-family:'DM Mono',monospace; color:var(--accent2);">0%</div>
+      </div>
+      <div style="padding:12px; background:var(--surface-variant); border-radius:10px;">
+        <div style="font-size:0.6rem; color:var(--muted); font-weight:700; text-transform:uppercase;">Duration</div>
+        <div id="sum-duration" style="font-size:1.8rem; font-weight:800; font-family:'DM Mono',monospace; color:var(--accent3);">0s</div>
+      </div>
+    </div>
+    <button onclick="closeSummary()" style="padding:10px 28px; border-radius:10px; background:linear-gradient(135deg,#38bdf8,#34d399); border:none; font-family:'Syne',sans-serif; font-weight:700; font-size:0.9rem; cursor:pointer; color:#000;">Done</button>
+  </div>
+</div>
+
+<script>
+const socket = io();
+let sessionActive = false;
+let selectedExercise = null;
+let timerInterval = null;
+let sessionSeconds = 0;
+let lastReps = 0;
+const REP_GOAL = 10;
+let allExercises = {};
+let currentCategory = null;
+let isPaused = false;
+
+// ── Load exercises from API ──────────────────────────────────────────────────
+async function loadExercises() {
+  try {
+    const res = await fetch('/api/exercises');
+    allExercises = await res.json();
+
+    // Build category tabs
+    const cats = [...new Set(Object.values(allExercises).map(e => e.category))];
+    const tabsEl = document.getElementById('cat-tabs');
+    tabsEl.innerHTML = '';
+    cats.forEach((cat, i) => {
+      const tab = document.createElement('div');
+      tab.className = 'cat-tab' + (i === 0 ? ' active' : '');
+      tab.textContent = cat;
+      tab.onclick = () => filterCategory(cat, tab);
+      tabsEl.appendChild(tab);
+    });
+
+    if (cats.length > 0) {
+      currentCategory = cats[0];
+      renderExercises(cats[0]);
+    }
+  } catch(e) {
+    console.error('Failed to load exercises:', e);
+    document.getElementById('exercise-list').innerHTML = '<div style="color:var(--danger);padding:16px;">Error loading exercises</div>';
+  }
+}
+
+function filterCategory(cat, tabEl) {
+  currentCategory = cat;
+  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+  renderExercises(cat);
+}
+
+function renderExercises(cat) {
+  const listEl = document.getElementById('exercise-list');
+  listEl.innerHTML = '';
+
+  for (const [key, ex] of Object.entries(allExercises)) {
+    if (ex.category !== cat) continue;
+
+    const btn = document.createElement('button');
+    btn.className = 'exercise-btn' + (selectedExercise === key ? ' selected' : '');
+    btn.setAttribute('data-key', key);
+
+    const typeBadge = ex.type === 'hold' ? 'HOLD' : ex.type === 'motion' ? 'MOTION' : 'REPS';
+    btn.innerHTML = `
+      <div class="icon">${ex.icon}</div>
+      <div class="info">
+        <div class="name">${ex.name}</div>
+        <div class="desc">${ex.description}</div>
+      </div>
+      <div class="type-badge">${typeBadge}</div>
+    `;
+    btn.onclick = () => selectExercise(key, btn);
+    listEl.appendChild(btn);
+  }
+
+  if (listEl.innerHTML === '') {
+    listEl.innerHTML = '<div style="color:var(--muted);padding:16px;text-align:center;">No exercises in this category</div>';
+  }
+}
+
+// ── Exercise selection ───────────────────────────────────────────────────────
+async function selectExercise(key, btnEl) {
+  selectedExercise = key;
+  const ex = allExercises[key];
+
+  // Update selected state in UI
+  document.querySelectorAll('.exercise-btn').forEach(b => b.classList.remove('selected'));
+  if (btnEl) btnEl.classList.add('selected');
+
+  // Update info panels
+  document.getElementById('current-exercise-name').textContent = ex.name;
+  document.getElementById('inst-steps').textContent = ex.steps || 'Follow on-screen coaching.';
+  document.getElementById('inst-tips').textContent = ex.tips || 'Watch your form!';
+
+  // If session is active, dynamically switch on backend
+  if (sessionActive) {
+    try {
+      await fetch('/api/set-exercise', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({exercise: key})
+      });
+      // Reset UI counters
+      document.getElementById('rep-counter').textContent = '0';
+      document.getElementById('circle-pct').textContent = '0%';
+      document.getElementById('circle-fill').style.strokeDashoffset = 220;
+      document.getElementById('correct-reps-count').textContent = '0';
+      document.getElementById('accuracy-pct').textContent = '0%';
+      document.getElementById('accuracy-bar').style.width = '0%';
+      document.getElementById('form-score-large').textContent = '0%';
+      document.getElementById('live-total').textContent = '0';
+      document.getElementById('live-correct').textContent = '0';
+      lastReps = 0;
+      showToast('Switched to ' + ex.name);
+    } catch(e) {
+      showToast('Switch error: ' + e.message, true);
+    }
+  }
+}
+
+// ── Socket events ────────────────────────────────────────────────────────────
+socket.on('connect', () => {
+  document.getElementById('conn-status').textContent = 'Connected';
+  document.getElementById('conn-status').style.color = 'var(--accent2)';
+});
+socket.on('disconnect', () => {
+  document.getElementById('conn-status').textContent = 'Disconnected';
+  document.getElementById('conn-status').style.color = 'var(--danger)';
+});
+
+socket.on('frame', (data) => {
+  // Camera feed
+  if (data.image) {
+    const img = document.getElementById('camera-feed');
+    img.src = 'data:image/jpeg;base64,' + data.image;
+    img.style.display = 'block';
+    document.getElementById('no-feed-msg').style.display = 'none';
+  }
+
+  // FPS
+  if (data.fps != null) {
+    document.getElementById('fps-display').textContent = data.fps + ' FPS';
+    document.getElementById('live-fps').textContent = data.fps;
+  }
+
+  // Pose detected
+  if (data.pose_detected != null) {
+    document.getElementById('live-pose').textContent = data.pose_detected ? '✅ Yes' : '❌ No';
+  }
+
+  // Posture / status
+  const wrapper = document.getElementById('camera-wrapper');
+  const pill = document.getElementById('pose-status');
+  const pillText = document.getElementById('pose-status-text');
+
+  if (!data.pose_detected) {
+    wrapper.className = 'camera-wrapper';
+    pill.className = 'status-pill idle';
+    pillText.textContent = 'NO POSE';
+  } else if (data.posture_ok) {
+    wrapper.className = 'camera-wrapper ok';
+    pill.className = 'status-pill ok';
+    pillText.textContent = 'GOOD FORM';
+  } else {
+    wrapper.className = 'camera-wrapper bad';
+    pill.className = 'status-pill bad';
+    pillText.textContent = 'CHECK FORM';
+  }
+
+  // Reps
+  if (data.total_reps != null) {
+    const repsEl = document.getElementById('rep-counter');
+    if (data.total_reps !== lastReps) {
+      repsEl.classList.remove('bump');
+      void repsEl.offsetWidth;
+      repsEl.classList.add('bump');
+      lastReps = data.total_reps;
+    }
+    repsEl.textContent = data.total_reps;
+    document.getElementById('live-total').textContent = data.total_reps;
+
+    // Circular progress
+    const pct = Math.min((data.total_reps / REP_GOAL) * 100, 100);
+    const circ = 2 * Math.PI * 34;
+    document.getElementById('circle-fill').style.strokeDashoffset = circ - (pct / 100) * circ;
+    document.getElementById('circle-pct').textContent = Math.round(pct) + '%';
+  }
+
+  // Correct reps & accuracy
+  if (data.correct_reps != null) {
+    document.getElementById('correct-reps-count').textContent = data.correct_reps;
+    document.getElementById('live-correct').textContent = data.correct_reps;
+  }
+  if (data.accuracy != null) {
+    document.getElementById('accuracy-pct').textContent = data.accuracy + '%';
+    document.getElementById('accuracy-bar').style.width = data.accuracy + '%';
+    document.getElementById('form-score-large').textContent = data.accuracy + '%';
+  }
+
+  // Feedback
+  if (data.feedback) {
+    const fbEl = document.getElementById('feedback-msg');
+    fbEl.textContent = data.feedback;
+    fbEl.className = 'feedback-msg ' + (data.posture_ok ? 'positive' : 'warning');
+    if (data.rep_complete) {
+      const speaker = document.getElementById('speaker-icon');
+      speaker.style.display = 'inline';
+      setTimeout(() => speaker.style.display = 'none', 1500);
+    }
+  }
+
+  // Phase indicator
+  if (data.state) {
+    const upEl = document.getElementById('phase-up');
+    const downEl = document.getElementById('phase-down');
+    if (data.state === 'up') {
+      upEl.style.background = 'rgba(56,189,248,0.15)'; upEl.style.borderColor = 'rgba(56,189,248,0.5)'; upEl.style.color = 'var(--accent)';
+      downEl.style.background = 'rgba(255,255,255,0.02)'; downEl.style.borderColor = 'var(--border)'; downEl.style.color = 'var(--muted)';
+    } else {
+      downEl.style.background = 'rgba(52,211,153,0.15)'; downEl.style.borderColor = 'rgba(52,211,153,0.5)'; downEl.style.color = 'var(--accent2)';
+      upEl.style.background = 'rgba(255,255,255,0.02)'; upEl.style.borderColor = 'var(--border)'; upEl.style.color = 'var(--muted)';
+    }
+  }
+
+  // Angles
+  const joints = ['left_knee','right_knee','left_elbow','right_elbow','left_shoulder','right_shoulder'];
+  joints.forEach(j => {
+    const el = document.getElementById('ang-' + j);
+    if (el) el.textContent = data.angles && data.angles[j] != null ? data.angles[j] + '°' : '—';
+  });
+});
+
+// ── Session controls ─────────────────────────────────────────────────────────
+async function toggleSession() {
+  const btn = document.getElementById('toggle-btn');
+  btn.disabled = true;
+  try {
+    if (!sessionActive) {
+      if (!selectedExercise) { showToast('Select an exercise first!', true); btn.disabled = false; return; }
+      const res = await fetch('/api/start-session', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({exercise: selectedExercise})
+      });
+      const data = await res.json();
+      if (res.ok) {
+        sessionActive = true;
+        btn.textContent = '⏹ Stop Session';
+        btn.className = 'btn-action stop';
+        document.getElementById('pause-btn').disabled = false;
+        document.getElementById('reset-btn').disabled = false;
+        startTimer();
+        showToast('Session started!');
+        document.getElementById('feedback-msg').textContent = 'Session active — get into position!';
+      } else {
+        showToast(data.error || 'Error starting session', true);
+      }
+    } else {
+      const res = await fetch('/api/end-session', {method:'POST'});
+      const data = await res.json();
+      sessionActive = false;
+      btn.textContent = '▶ Start Session';
+      btn.className = 'btn-action start';
+      document.getElementById('pause-btn').disabled = true;
+      document.getElementById('reset-btn').disabled = true;
+      isPaused = false;
+      document.getElementById('pause-btn').textContent = '⏸ Pause';
+      stopTimer();
+      resetFeed();
+      showSummary(data);
+    }
+  } catch(e) {
+    showToast('Network error: ' + e.message, true);
+  }
+  btn.disabled = false;
+}
+
+async function pauseSession() {
+  try {
+    const res = await fetch('/api/pause-session', {method:'POST'});
+    const data = await res.json();
+    isPaused = data.paused;
+    document.getElementById('pause-btn').textContent = isPaused ? '▶ Resume' : '⏸ Pause';
+    showToast(isPaused ? 'Session paused' : 'Session resumed');
+  } catch(e) {
+    showToast('Error: ' + e.message, true);
+  }
+}
+
+async function resetSession() {
+  try {
+    await fetch('/api/reset-session', {method:'POST'});
+    document.getElementById('rep-counter').textContent = '0';
+    document.getElementById('circle-pct').textContent = '0%';
+    document.getElementById('circle-fill').style.strokeDashoffset = 220;
+    document.getElementById('correct-reps-count').textContent = '0';
+    document.getElementById('accuracy-pct').textContent = '0%';
+    document.getElementById('accuracy-bar').style.width = '0%';
+    document.getElementById('form-score-large').textContent = '0%';
+    document.getElementById('live-total').textContent = '0';
+    document.getElementById('live-correct').textContent = '0';
+    lastReps = 0;
+    showToast('Counters reset');
+  } catch(e) {
+    showToast('Error: ' + e.message, true);
+  }
+}
+
+function startTimer() {
+  sessionSeconds = 0;
+  timerInterval = setInterval(() => {
+    sessionSeconds++;
+    const m = String(Math.floor(sessionSeconds/60)).padStart(2,'0');
+    const s = String(sessionSeconds%60).padStart(2,'0');
+    document.getElementById('session-timer').textContent = m+':'+s;
+  }, 1000);
+}
+function stopTimer() { clearInterval(timerInterval); }
+
+function resetFeed() {
+  document.getElementById('camera-feed').style.display = 'none';
+  document.getElementById('no-feed-msg').style.display = 'flex';
+  document.getElementById('camera-wrapper').className = 'camera-wrapper';
+  document.getElementById('pose-status').className = 'status-pill idle';
+  document.getElementById('pose-status-text').textContent = 'READY';
+  document.getElementById('feedback-msg').textContent = 'Start a session to receive feedback.';
+  document.getElementById('feedback-msg').className = 'feedback-msg';
+  document.getElementById('fps-display').textContent = '— FPS';
+}
+
+function showSummary(data) {
+  document.getElementById('sum-reps').textContent = data.total_reps || 0;
+  document.getElementById('sum-accuracy').textContent = (data.accuracy || 0) + '%';
+  document.getElementById('sum-duration').textContent = (data.duration || 0) + 's';
+  document.getElementById('summary-exercise-name').textContent = data.exercise || '—';
+  document.getElementById('summary-modal').style.display = 'flex';
+}
+function closeSummary() {
+  document.getElementById('summary-modal').style.display = 'none';
+}
+
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  if (isError) { t.style.borderColor = 'var(--danger)'; t.style.color = 'var(--danger)'; }
+  else { t.style.borderColor = 'var(--accent2)'; t.style.color = 'var(--accent2)'; }
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', loadExercises);
+</script>
+</body>
+</html>

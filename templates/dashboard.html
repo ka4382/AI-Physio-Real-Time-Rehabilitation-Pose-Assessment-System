@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Physio | Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c14;
+    --surface: rgba(255,255,255,0.03);
+    --surface-variant: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.08);
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --accent: #38bdf8;
+    --accent2: #34d399;
+    --accent3: #a78bfa;
+    --danger: #f87171;
+    --warn: #fbbf24;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Syne',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+  .glass { background:var(--surface); border:1px solid var(--border); border-radius:16px; backdrop-filter:blur(12px); }
+
+  nav {
+    display:flex; align-items:center; gap:16px; padding:12px 24px;
+    border-bottom:1px solid var(--border); position:sticky; top:0;
+    background:rgba(8,12,20,0.9); backdrop-filter:blur(12px); z-index:100;
+  }
+  .logo { font-weight:800; font-size:1.15rem; }
+  .nav-badge { font-size:0.55rem; font-weight:700; letter-spacing:0.12em; padding:3px 8px; border-radius:6px; background:rgba(56,189,248,0.15); color:var(--accent); border:1px solid rgba(56,189,248,0.3); }
+  .nav-links { margin-left:auto; display:flex; gap:8px; align-items:center; }
+  .nav-link { font-size:0.78rem; font-weight:600; color:var(--muted); text-decoration:none; padding:6px 14px; border-radius:8px; transition:all 0.2s; }
+  .nav-link.active, .nav-link:hover { color:var(--text); background:var(--surface-variant); }
+  .nav-user { font-size:0.75rem; font-weight:700; color:var(--accent2); margin-left:8px; }
+  .btn-logout {
+    font-size:0.72rem; font-weight:700; padding:6px 14px; border-radius:8px;
+    background:rgba(248,113,113,0.1); color:var(--danger); border:1px solid rgba(248,113,113,0.2);
+    cursor:pointer; transition:all 0.2s; font-family:'Syne',sans-serif;
+  }
+  .btn-logout:hover { background:rgba(248,113,113,0.2); }
+
+  .dashboard { max-width:1100px; margin:0 auto; padding:24px; display:flex; flex-direction:column; gap:20px; }
+  .section-title { font-size:0.65rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+
+  /* Welcome banner */
+  .welcome-banner {
+    padding:32px; border-radius:20px; position:relative; overflow:hidden;
+    background:linear-gradient(135deg, rgba(56,189,248,0.1), rgba(52,211,153,0.05));
+    border:1px solid rgba(56,189,248,0.15);
+  }
+  .welcome-banner h1 { font-size:1.8rem; font-weight:800; margin-bottom:4px; }
+  .welcome-banner .sub { font-size:0.9rem; color:var(--muted); }
+
+  /* Grid layouts */
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media(max-width:768px) { .grid-3,.grid-2 { grid-template-columns:1fr; } }
+
+  /* Stat cards */
+  .stat-card { padding:20px; text-align:center; }
+  .stat-card .icon { font-size:2rem; margin-bottom:8px; }
+  .stat-card .value { font-family:'DM Mono',monospace; font-size:2rem; font-weight:800; }
+  .stat-card .label { font-size:0.7rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.08em; margin-top:4px; }
+
+  /* Profile card */
+  .profile-card { padding:24px; }
+  .profile-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+  .profile-row:last-child { border-bottom:none; }
+  .profile-row .key { font-size:0.78rem; color:var(--muted); font-weight:600; }
+  .profile-row .val { font-family:'DM Mono',monospace; font-size:0.85rem; color:var(--text); }
+
+  /* BMI card */
+  .bmi-card { padding:24px; text-align:center; }
+  .bmi-value { font-family:'DM Mono',monospace; font-size:3rem; font-weight:800; margin:8px 0; }
+  .bmi-label { font-size:0.85rem; font-weight:700; padding:4px 14px; border-radius:20px; display:inline-block; }
+  .bmi-label.underweight { background:rgba(56,189,248,0.15); color:var(--accent); }
+  .bmi-label.normal { background:rgba(52,211,153,0.15); color:var(--accent2); }
+  .bmi-label.overweight { background:rgba(251,191,36,0.15); color:var(--warn); }
+  .bmi-label.obese { background:rgba(248,113,113,0.15); color:var(--danger); }
+
+  /* Recommendations */
+  .rec-card { padding:16px; display:flex; align-items:center; gap:14px; }
+  .rec-icon { font-size:1.8rem; width:44px; text-align:center; }
+  .rec-info { flex:1; }
+  .rec-name { font-size:0.85rem; font-weight:700; }
+  .rec-why { font-size:0.7rem; color:var(--muted); margin-top:2px; }
+  .rec-badge { font-size:0.55rem; font-weight:700; padding:3px 8px; border-radius:6px; }
+
+  /* History table */
+  .history-table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+  .history-table th { text-align:left; color:var(--muted); font-weight:700; font-size:0.65rem; letter-spacing:0.08em; text-transform:uppercase; padding:10px 12px; border-bottom:1px solid var(--border); }
+  .history-table td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.03); }
+  .history-table tr:hover td { background:rgba(56,189,248,0.03); }
+  .mono { font-family:'DM Mono',monospace; }
+
+  .loading { text-align:center; padding:32px; color:var(--muted); font-size:0.85rem; }
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo">⚡ AI-Physio</span>
+  <span class="nav-badge">EDGE AI</span>
+  <div class="nav-links">
+    <a href="/" class="nav-link">Live Session</a>
+    <a href="/dashboard" class="nav-link active">Dashboard</a>
+    <span class="nav-user" id="nav-user">—</span>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="dashboard">
+  <!-- Welcome -->
+  <div class="welcome-banner glass" id="welcome-banner">
+    <h1 id="welcome-name">Welcome!</h1>
+    <div class="sub">Your personalized physiotherapy dashboard</div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="grid-3">
+    <div class="glass stat-card">
+      <div class="icon">🏋️</div>
+      <div class="value" id="stat-sessions" style="color:var(--accent);">—</div>
+      <div class="label">Total Sessions</div>
+    </div>
+    <div class="glass stat-card">
+      <div class="icon">🔁</div>
+      <div class="value" id="stat-reps" style="color:var(--accent2);">—</div>
+      <div class="label">Total Reps</div>
+    </div>
+    <div class="glass stat-card">
+      <div class="icon">🎯</div>
+      <div class="value" id="stat-accuracy" style="color:var(--accent3);">—</div>
+      <div class="label">Avg Accuracy</div>
+    </div>
+  </div>
+
+  <!-- Profile + BMI -->
+  <div class="grid-2">
+    <div class="glass profile-card">
+      <div class="section-title">👤 Profile</div>
+      <div id="profile-rows"><div class="loading">Loading...</div></div>
+    </div>
+    <div class="glass bmi-card">
+      <div class="section-title">📊 BMI Analysis</div>
+      <div class="bmi-value" id="bmi-value">—</div>
+      <div id="bmi-label-wrap"></div>
+      <div id="bmi-detail" style="margin-top:12px; font-size:0.78rem; color:var(--muted);"></div>
+    </div>
+  </div>
+
+  <!-- Recommendations -->
+  <div>
+    <div class="section-title">🏃 Recommended Exercises</div>
+    <div class="grid-3" id="recommendations"><div class="loading glass">Loading...</div></div>
+  </div>
+
+  <!-- History -->
+  <div class="glass" style="padding:20px;">
+    <div class="section-title">📋 Session History</div>
+    <div id="history-wrap"><div class="loading">Loading...</div></div>
+  </div>
+</div>
+
+<script>
+const STRENGTH_EXERCISES = [
+  {icon:'🌉', name:'Glute Bridge', why:'Core & glute strength', key:'bridge'},
+  {icon:'🧱', name:'Plank', why:'Core stability', key:'plank'},
+  {icon:'🦸', name:'Superman', why:'Back extension', key:'superman'},
+  {icon:'✋', name:'Wall Push-Up', why:'Upper body strength', key:'wall_pushup'},
+  {icon:'🪑', name:'Sit-to-Stand', why:'Functional leg strength', key:'sit_to_stand'},
+  {icon:'🦵', name:'Squat', why:'Full lower body', key:'squat'},
+];
+const FATLOSS_EXERCISES = [
+  {icon:'🦵', name:'Squat', why:'Calorie burner', key:'squat'},
+  {icon:'🩰', name:'Calf Raises', why:'Lower leg endurance', key:'calf_raises'},
+  {icon:'🪑', name:'Sit-to-Stand', why:'Functional cardio', key:'sit_to_stand'},
+  {icon:'🏃', name:'Side Leg Lift', why:'Hip burner', key:'side_leg_lift'},
+  {icon:'🐚', name:'Clamshells', why:'Hip activation', key:'clamshells'},
+  {icon:'🪲', name:'Dead Bug', why:'Core engagement', key:'dead_bug'},
+];
+const MOBILITY_EXERCISES = [
+  {icon:'🐱', name:'Cat-Cow Stretch', why:'Spinal mobility', key:'cat_cow'},
+  {icon:'🦶', name:'Ankle Circles', why:'Joint mobility', key:'ankle_circles'},
+  {icon:'👟', name:'Heel Slides', why:'Knee recovery', key:'heel_slides'},
+  {icon:'🧒', name:"Child's Pose", why:'Full body stretch', key:'childs_pose'},
+  {icon:'🔔', name:'Pendulum Swings', why:'Shoulder relief', key:'pendulum_swings'},
+  {icon:'🔃', name:'Shoulder Rolls', why:'Tension relief', key:'shoulder_rolls'},
+];
+
+async function loadDashboard() {
+  try {
+    const [userRes, statsRes, histRes] = await Promise.all([
+      fetch('/api/me'), fetch('/api/stats'), fetch('/api/get-history?limit=10')
+    ]);
+    const user = await userRes.json();
+    const stats = await statsRes.json();
+    const history = await histRes.json();
+
+    if (userRes.ok && user.name) {
+      document.getElementById('welcome-name').textContent = 'Welcome, ' + user.name + '! 👋';
+      document.getElementById('nav-user').textContent = user.name;
+
+      // Profile
+      const rows = [
+        ['Email', user.email],
+        ['Phone', user.phone || '—'],
+        ['Age', user.age ? user.age + ' years' : '—'],
+        ['DOB', user.dob || '—'],
+        ['Height', user.height ? user.height + ' cm' : '—'],
+        ['Weight', user.weight ? user.weight + ' kg' : '—'],
+      ];
+      document.getElementById('profile-rows').innerHTML = rows.map(([k,v]) =>
+        `<div class="profile-row"><span class="key">${k}</span><span class="val mono">${v}</span></div>`
+      ).join('');
+
+      // BMI
+      if (user.height && user.weight && user.height > 0) {
+        const hm = user.height / 100;
+        const bmi = user.weight / (hm * hm);
+        document.getElementById('bmi-value').textContent = bmi.toFixed(1);
+
+        let label, cls, detail, exercises;
+        if (bmi < 18.5) {
+          label = 'Underweight'; cls = 'underweight';
+          detail = 'Focus on strength-building exercises to build muscle mass.';
+          exercises = STRENGTH_EXERCISES;
+        } else if (bmi < 25) {
+          label = 'Normal'; cls = 'normal';
+          detail = 'Great shape! Maintain with a mix of mobility and strength work.';
+          exercises = MOBILITY_EXERCISES;
+        } else if (bmi < 30) {
+          label = 'Overweight'; cls = 'overweight';
+          detail = 'Recommended: high-rep, compound exercises for fat loss.';
+          exercises = FATLOSS_EXERCISES;
+        } else {
+          label = 'Obese'; cls = 'obese';
+          detail = 'Start with gentle mobility and gradually increase intensity.';
+          exercises = FATLOSS_EXERCISES;
+        }
+
+        document.getElementById('bmi-label-wrap').innerHTML = `<span class="bmi-label ${cls}">${label}</span>`;
+        document.getElementById('bmi-detail').textContent = detail;
+
+        // Render recommendations
+        const first3 = exercises.slice(0, 3);
+        document.getElementById('recommendations').innerHTML = first3.map(ex =>
+          `<div class="glass rec-card">
+            <div class="rec-icon">${ex.icon}</div>
+            <div class="rec-info">
+              <div class="rec-name">${ex.name}</div>
+              <div class="rec-why">${ex.why}</div>
+            </div>
+            <a href="/" class="rec-badge" style="background:rgba(56,189,248,0.15); color:var(--accent); text-decoration:none; border:1px solid rgba(56,189,248,0.3);">START</a>
+          </div>`
+        ).join('');
+      } else {
+        document.getElementById('bmi-value').textContent = '—';
+        document.getElementById('bmi-detail').textContent = 'Add your height and weight to get BMI analysis.';
+        document.getElementById('recommendations').innerHTML = MOBILITY_EXERCISES.slice(0,3).map(ex =>
+          `<div class="glass rec-card">
+            <div class="rec-icon">${ex.icon}</div>
+            <div class="rec-info"><div class="rec-name">${ex.name}</div><div class="rec-why">${ex.why}</div></div>
+            <a href="/" class="rec-badge" style="background:rgba(56,189,248,0.15); color:var(--accent); text-decoration:none; border:1px solid rgba(56,189,248,0.3);">START</a>
+          </div>`
+        ).join('');
+      }
+    }
+
+    // Stats
+    document.getElementById('stat-sessions').textContent = stats.total_sessions || 0;
+    document.getElementById('stat-reps').textContent = stats.total_reps || 0;
+    document.getElementById('stat-accuracy').textContent = (stats.avg_accuracy || 0).toFixed(1) + '%';
+
+    // History
+    if (history.length > 0) {
+      let html = `<table class="history-table">
+        <thead><tr><th>Exercise</th><th>Reps</th><th>Accuracy</th><th>Duration</th><th>Date</th></tr></thead><tbody>`;
+      history.forEach(s => {
+        const d = s.ended_at ? new Date(s.ended_at).toLocaleDateString() : '—';
+        html += `<tr>
+          <td>${s.exercise_type}</td>
+          <td class="mono">${s.total_reps}</td>
+          <td class="mono" style="color:var(--accent2);">${(s.accuracy||0).toFixed(1)}%</td>
+          <td class="mono">${s.duration_seconds||0}s</td>
+          <td style="color:var(--muted);">${d}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      document.getElementById('history-wrap').innerHTML = html;
+    } else {
+      document.getElementById('history-wrap').innerHTML = '<div class="loading">No sessions yet. Start exercising!</div>';
+    }
+
+  } catch(e) {
+    console.error('Dashboard error:', e);
+  }
+}
+
+async function logout() {
+  await fetch('/api/logout', {method:'POST'});
+  window.location.href = '/login';
+}
+
+window.addEventListener('DOMContentLoaded', loadDashboard);
+</script>
+</body>
+</html>
