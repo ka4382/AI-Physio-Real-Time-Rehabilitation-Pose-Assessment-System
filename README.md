@@ -1,82 +1,38 @@
-# ⚡ AI-Physio — Real-Time Rehabilitation Pose Assessment System
+# AI-Physio: Real-Time Rehabilitation Pose Assessment System
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Flask](https://img.shields.io/badge/framework-Flask-red.svg)](https://flask.palletsprojects.com/)
-[![MediaPipe](https://img.shields.io/badge/vision-MediaPipe-green.svg)](https://google.github.io/mediapipe/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+AI-Physio is a high-performance, edge-based physiotherapy assistant designed to provide real-time assessment of exercise form using computer vision. The system tracks 33 body landmarks to calculate joint angles, count repetitions via a state-machine logic, and provide immediate audio-visual feedback to the user. All processing is done locally to ensure data privacy and low-latency performance.
 
-A production-ready, edge-based physiotherapy assistant that uses computer vision to assess exercise form, count repetitions, and provide real-time audio+visual feedback — all running locally on your machine.
+## Core Features
 
----
+- Real-Time Pose Tracking: Utilizes MediaPipe BlazePose for accurate 33-landmark skeleton detection.
+- Biomechanical Evaluation: Supports 24 specific exercises across four categories (Core, Lower Body, Upper Body, and Mobility).
+- Automated Repetition Counting: Employs a hysteresis-based state machine for robust movement detection.
+- Intelligent Feedback System: Provides corrective audio cues and visual indicators for form deviations.
+- Local Analytics Dashboard: Stores session data in a local SQLite database for historical progress tracking.
+- Fully Offline Operation: Requires no cloud APIs or external processing, running efficiently on standard CPU hardware.
 
-## 🎯 Key Features
+## System Architecture
 
-- **24+ Supported Exercises** — From orthopaedic recovery (Heel Slides, Clamshells) to core strength (Plank, Bird Dog).
-- **Real-Time Pose Detection** — Powered by MediaPipe BlazePose for clinical-grade landmark tracking.
-- **Biomechanical Logic** — Real-time joint angle calculation and state-machine based rep counting.
-- **Intelligent Feedback** — 
-  - **Visual Interventions**: Red/Green joint indicators and form overlays.
-  - **Audio Coaching**: Offline TTS providing immediate corrective cues.
-- **Comprehensive Analytics** — Dashboard featuring Chart.js visualizations for accuracy, volume, and progress tracking.
-- **Secure Data Persistence** — Local SQLite storage for session history and user profiles.
+The application is built on a modular backend using Python and Flask, integrated with SocketIO for real-time data streaming.
 
----
+1. Capture Layer: OpenCV handles video stream acquisition from local hardware.
+2. Inference Layer: MediaPipe processes frames to extract skeletal landmarks.
+3. Logic Layer: Custom services calculate joint angles and manage exercise state transitions.
+4. Persistence Layer: SQLite manages user profiles, session aggregates, and rep-by-rep event logs.
+5. Presentation Layer: A responsive web interface built with vanilla JavaScript and Chart.js.
 
-## 📁 Project Structure
+## Project Structure
 
-```text
-├── app.py                  # Flask + SocketIO Entry Point
-├── config.py               # Application Configuration
-├── requirements.txt        # Dependencies
-├── database/               # SQLite Helpers and Schema
-├── services/               # Core Logic (Pose, Angle, Exercise, Feedback)
-├── templates/              # Modern UI (HTML)
-├── static/                 # Stylesheets and Javascript
-├── docs/                   # Detailed Technical Documentation
-└── utils/                  # Helper Functions
-```
+- app.py: Main entry point for the Flask-SocketIO server.
+- config.py: Centralized application settings and hardware indices.
+- database/: Contains the SQLite database helpers and SQL schema definitions.
+- services/: Core logic including pose estimation, angle math, and exercise tracking.
+- templates/: HTML5 UI components for the live sessions and analytics dashboard.
+- static/: CSS and JS assets for the frontend.
+- docs/: Detailed technical documentation and evaluation papers.
+- utils/: Common utility functions and logging setup.
 
----
-
-## 🚀 Quick Start (Windows)
-
-### 1. Environment Setup
-```powershell
-# Clone the repository
-git clone https://github.com/ka4382/AI-Physio-Real-Time-Rehabilitation-Pose-Assessment-System.git
-cd AI-Physio-Real-Time-Rehabilitation-Pose-Assessment-System
-
-# Create & Activate Virtual Environment
-python -m venv venv
-.\venv\Scripts\activate
-```
-
-### 2. Install Dependencies
-```powershell
-pip install -r requirements.txt
-```
-
-### 3. Launch Application
-```powershell
-python app.py
-```
-👉 Open **[http://localhost:5000](http://localhost:5000)** in your browser.
-
----
-
-## 🔬 How it Works
-
-1. **Capture**: The system accesses your webcam via OpenCV.
-2. **Detection**: MediaPipe identifies 33 3D landmarks on your body.
-3. **Mathematics**: The `AngleService` computes vectors and joint angles using trigonometric dot products.
-4. **Assessment**: The `ExerciseTracker` runs a state machine to validate each repetition against clinical thresholds.
-5. **Instruction**: Real-time feedback is pushed via WebSockets to the UI and Audio service.
-
-For a deeper dive into the math and algorithms, see **[TECHNICAL_DOCS.md](docs/TECHNICAL_DOCS.md)**.
-
----
-
-## 🏋️ Exercise Categories
+## Exercise Categories
 
 | Core & Back | Lower Body | Upper Body | Mobility |
 |---|---|---|---|
@@ -85,17 +41,35 @@ For a deeper dive into the math and algorithms, see **[TECHNICAL_DOCS.md](docs/T
 | Bird Dog | Clamshells | Chin Tucks | Ankle Circles |
 | Superman | Leg Raises | Wall Slides | Child's Pose |
 
----
+## Installation and Setup
 
-## 🛠️ Tech Stack
+### 1. Environment Preparation
+It is recommended to use a virtual environment with Python 3.10 or later.
 
-*   **Backend**: Python, Flask, Flask-SocketIO
-*   **Computer Vision**: OpenCV, MediaPipe
-*   **Database**: SQLite
-*   **Frontend**: Tailwind CSS, Vanilla JS, Chart.js
-*   **Audio**: pyttsx3
+```powershell
+python -m venv venv
+.\venv\Scripts\activate
+```
 
----
+### 2. Dependency Installation
+Install the necessary libraries via pip:
 
-## 📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+```powershell
+pip install -r requirements.txt
+```
+
+### 3. Execution
+Launch the local development server:
+
+```powershell
+python app.py
+```
+Access the application at http://localhost:5000 in your preferred browser.
+
+## Technical Details
+
+For detailed information regarding joint angle calculations, state machine thresholds, and the biomechanical engineering principles behind the platform, refer to the documentation in the docs/TECHNICAL_DOCS.md file.
+
+## License
+
+This project is released under the MIT License.
